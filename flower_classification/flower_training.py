@@ -8,7 +8,7 @@ import logging
 
 from flower_classification.flower_classifier import FlowerClassifier
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class FlowerTrainer(FlowerClassifier):
@@ -22,6 +22,9 @@ class FlowerTrainer(FlowerClassifier):
         ground_truth = []
 
         for i, (image, label) in enumerate(data_loader):
+
+            image = image.to(self.device)
+            label = label.to(self.device)
 
             with torch.no_grad():
 
@@ -50,10 +53,10 @@ class FlowerTrainer(FlowerClassifier):
                 logger.info(f'Phase {phase}')
                 logger.info(('-' * 125))
 
-                if phase == 'train':
-                    self.model.train()
-                else:
-                    self.model.eval()
+                model_state = {"train": self.model.train,
+                               'test': self.model.eval,
+                               'valid': self.model.eval}
+                model_state[phase]()
 
                 if phase not in self.training_log.keys():
                     self.training_log[phase] = {'epoch_loss': [], 'batch_loss': []}
@@ -63,10 +66,11 @@ class FlowerTrainer(FlowerClassifier):
                 epoch_predicted_labels = []
                 batch_time = []
 
-                for i, sample in enumerate(data_loader[phase]):
+                for i, (image, label) in enumerate(data_loader[phase]):
                     start_batch = datetime.now()
-                    image = sample['image']
-                    label = sample['keypoints']
+                    image = image.to(self.device)
+                    label = label.to(self.device)
+
                     if phase == 'train':
                         # zero the parameter gradients
                         self.optimizer.zero_grad()

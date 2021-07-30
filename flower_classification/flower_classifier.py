@@ -2,27 +2,31 @@ from abc import ABC
 from pathlib import Path
 from typing import Union
 import torch
-from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss
+from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss
 from torch.optim import Adam, SGD
 import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
 import numpy as np
+import torchvision.models as models
+import torch.nn as nn
 
 plt.style.use('ggplot')
 
 
 class FlowerClassifier:
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     optimizers = {'adam': Adam, 'sgd': SGD}
-    criterions = {'l1': L1Loss, 'smooth_l1': SmoothL1Loss, 'mse': MSELoss}
+    criterions = {'l1': L1Loss, 'smooth_l1': SmoothL1Loss, 'mse': MSELoss, 'cross_entropy': CrossEntropyLoss}
     scheduler_choices = {'steplr': StepLR}
 
-    def __init__(self):
+    def __init__(self, num_classes: int = 100):
 
-        self.model = self.get_model()
+        self.model = self.get_model(num_classes)
         self.criterion = None
         self.optimizer = None
         self.__optimizer_choice = None
         self.scheduler = None
+        self.__scheduler_choice = None
         self.scheduler_parameter = None
         self.hyper_parameter = {}
 
@@ -31,8 +35,14 @@ class FlowerClassifier:
                                             'epoch_accuracy': []},
                              'learning_rate': []}
 
-    def get_model(self) -> Module:
-        pass
+    def get_model(self, num_classes: int) -> Module:
+        model_ft = models.resnet18(pretrained=True)
+        num_ftrs = model_ft.fc.in_features
+        # Here the size of each output sample is set to 2.
+        # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
+        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+
+        return model_ft.to(self.device)
 
     def set_criterion(self, criterion: str) -> None:
         self.criterion = self.criterions[criterion]()
@@ -46,6 +56,7 @@ class FlowerClassifier:
 
     def set_scheduler(self, scheduler: str, params: dict):
         self.scheduler = self.scheduler_choices[scheduler](self.optimizer, **params)
+        self.__scheduler_choice = scheduler
         self.scheduler_parameter = params
 
     def get_lr(self):
@@ -63,6 +74,7 @@ class FlowerClassifier:
         new.model.load_state_dict(state['model_state_dict'])
         new.optimizer.load_state_dict(state['optimizer_state_dict'])
         new.training_log = state['training_log']
+        new.set_scheduler(state['scheduler'], state['scheduler_parameter'])
 
         return new
 
@@ -72,7 +84,9 @@ class FlowerClassifier:
                  'optimizer_state_dict': self.optimizer.state_dict(),
                  'training_log': self.training_log,
                  'optimizer': self.__optimizer_choice,
-                 'hyper_parameter': self.hyper_parameter
+                 'hyper_parameter': self.hyper_parameter,
+                 'scheduler': self.__scheduler_choice,
+                 'scheduler_parameter': self.scheduler_parameter
                  }
 
         torch.save(state, filepath)
