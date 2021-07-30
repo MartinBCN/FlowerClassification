@@ -66,16 +66,16 @@ class FlowerDataSet(Dataset):
         image = Image.open(fn).convert("RGB")
         tensor_image = self.transformation(image)
 
-        # Derive class from filename
-        label = int(fn.parent.name)
-        print(label)
+        # Derive class from filename. For now I use the -1 as a hack as the label start at 1. However,
+        # this needs to be implemented carefully when adding the text labels!
+        label = int(fn.parent.name) - 1
         return tensor_image, torch.tensor(label)
 
     def __len__(self):
         return len(self.files)
 
 
-def get_loader(base_dir: Union[str, Path], phase: str) -> DataLoader:
+def get_loader(base_dir: Union[str, Path], phase: str, batch_size: int = 1, num_workers: int = 0) -> DataLoader:
     """
     Get the data loader for the chosen phase (train/test/valid)
 
@@ -83,6 +83,8 @@ def get_loader(base_dir: Union[str, Path], phase: str) -> DataLoader:
     ----------
     base_dir: Union[str, Path]
     phase: str
+    batch_size: int, default = 1
+    num_workers: int, default = 0
 
     Returns
     -------
@@ -95,7 +97,11 @@ def get_loader(base_dir: Union[str, Path], phase: str) -> DataLoader:
         base_dir = Path(base_dir)
 
     dataset = FlowerDataSet(base_dir / phase, transformation=DATA_TRANSFORMS[phase])
-    return DataLoader(dataset, batch_size=4, shuffle=True)
+    loader = DataLoader(dataset,
+                        batch_size=batch_size,
+                        shuffle=True,
+                        num_workers=num_workers)
+    return loader
 
 
 if __name__ == '__main__':

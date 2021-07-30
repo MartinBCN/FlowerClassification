@@ -1,7 +1,7 @@
 from datetime import datetime
 import numpy as np
 import torch
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, accuracy_score
 from torch.utils.data import DataLoader
 from datetime import datetime
 import logging
@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 class FlowerTrainer(FlowerClassifier):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, num_classes: int = 100):
+        super().__init__(num_classes=num_classes)
 
     def evaluate(self, data_loader: DataLoader):
 
@@ -39,15 +39,21 @@ class FlowerTrainer(FlowerClassifier):
 
     def train(self, data_loader: dict, epochs: int, early_stop_epochs: int = 5):
 
-        start = datetime.now()
+        best_score = 0.0
+        no_improvement = 0
+        best_model = self.model.copy()
+
         for epoch in range(epochs):
+
+            start = datetime.now()
+
             logger.info(('=' * 125))
             logger.info(f'Epoch {epoch}')
             logger.info(('=' * 125))
 
             self.training_log['learning_rate'].append(self.get_lr())
 
-            for phase in ['train', 'validation']:
+            for phase in ['train', 'valid']:
 
                 logger.info(('-' * 125))
                 logger.info(f'Phase {phase}')
@@ -77,11 +83,12 @@ class FlowerTrainer(FlowerClassifier):
 
                     # forward + backward + optimize
                     outputs = self.model(image)
-                    loss = self.criterion(outputs, label.float())
+                    loss = self.criterion(outputs, label)
                     epoch_loss += loss.detach().cpu().numpy()
 
-                    # Batch Accuracy
-                    batch_predicted_labels = outputs.detach().cpu().numpy().reshape(-1)
+                    # --- Batch Accuracy ---
+                    batch_predicted_labels = outputs.detach().cpu().numpy()
+                    batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
                     batch_true_labels = label.detach().cpu().numpy().reshape(-1)
                     epoch_predicted_labels.append(batch_predicted_labels)
                     epoch_ground_truth.append(batch_true_labels)
@@ -93,27 +100,39 @@ class FlowerTrainer(FlowerClassifier):
                     # Permanent Value Tracking
                     batch_loss = loss.detach().cpu().numpy()
                     self.training_log[phase]['batch_loss'].append(batch_loss)
-                    accuracy = r2_score(batch_true_labels, batch_predicted_labels)
+                    accuracy = accuracy_score(batch_true_labels, batch_predicted_labels)
                     self.training_log[phase]['batch_accuracy'].append(accuracy)
 
                     # Regular Logging
                     log_string = f'Epoch {epoch + 1}/{epochs}, Batch {i+1}/{len(data_loader[phase])}'
                     log_string += f', Mean Epoch Loss: {epoch_loss / (i + 1):.2f}'
                     log_string += f'| Batch Loss: {batch_loss:.2f}'
-                    current_accuracy = r2_score(np.concatenate(epoch_ground_truth),
-                                                np.concatenate(epoch_predicted_labels))
+                    current_accuracy = accuracy_score(np.concatenate(epoch_ground_truth),
+                                                      np.concatenate(epoch_predicted_labels))
                     log_string += f' |Epoch Accuracy: {current_accuracy:.2f}'
                     log_string += f'| Batch Accuracy: {accuracy:.2f}'
                     delta = (datetime.now() - start_batch).microseconds/image.shape[0]/1000
                     batch_time.append(delta)
                     log_string += f' | Time/image: {np.mean(batch_time):.2f}ms '
 
-                    logger.info(log_string)
+                    if i % 100 == 0:
+                        logger.info(log_string)
 
                 # Log Epoch (accuracy and loss)
-                accuracy = r2_score(np.concatenate(epoch_ground_truth), np.concatenate(epoch_predicted_labels))
+                accuracy = accuracy_score(np.concatenate(epoch_ground_truth), np.concatenate(epoch_predicted_labels))
                 self.training_log[phase]['epoch_accuracy'].append(accuracy)
                 self.training_log[phase]['epoch_loss'].append(epoch_loss)
+
+                # Check if training improved score
+                if accuracy > best_score:
+                    best_score = accuracy
+                    best_model = self.model.copy()
+                    no_improvement = 0
+                else:
+                    no_improvement += 1
+
+                if no_improvement == early_stop_epochs:
+                    self.model = best_model
 
             if self.scheduler is not None:
                 self.scheduler.step()

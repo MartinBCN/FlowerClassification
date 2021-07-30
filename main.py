@@ -10,9 +10,11 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-model = FlowerTrainer()
+model = FlowerTrainer(num_classes=102)
 model.set_criterion('cross_entropy')
 model.set_optimizer('adam', dict(lr=0.001))
 
 
-loader = {phase: get_loader('data/flowers', phase) for phase in ['train', 'valid']}
+loader = {phase: get_loader('data/flowers', phase, batch_size=8) for phase in ['train', 'valid']}
+
+model.train(data_loader=loader, epochs=5, early_stop_epochs=5)

@@ -1,8 +1,7 @@
-from abc import ABC
 from pathlib import Path
 from typing import Union
 import torch
-from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss
+from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss, NLLLoss
 from torch.optim import Adam, SGD
 import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
@@ -16,7 +15,8 @@ plt.style.use('ggplot')
 class FlowerClassifier:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     optimizers = {'adam': Adam, 'sgd': SGD}
-    criterions = {'l1': L1Loss, 'smooth_l1': SmoothL1Loss, 'mse': MSELoss, 'cross_entropy': CrossEntropyLoss}
+    criterions = {'l1': L1Loss, 'smooth_l1': SmoothL1Loss, 'mse': MSELoss,
+                  'cross_entropy': CrossEntropyLoss, 'neg_log_likelihood': NLLLoss}
     scheduler_choices = {'steplr': StepLR}
 
     def __init__(self, num_classes: int = 100):
@@ -31,8 +31,7 @@ class FlowerClassifier:
         self.hyper_parameter = {}
 
         self.training_log = {'train': {'batch_loss': [], 'epoch_loss': [], 'batch_accuracy': [], 'epoch_accuracy': []},
-                             'validation': {'batch_loss': [], 'epoch_loss': [], 'batch_accuracy': [],
-                                            'epoch_accuracy': []},
+                             'valid': {'batch_loss': [], 'epoch_loss': [], 'batch_accuracy': [], 'epoch_accuracy': []},
                              'learning_rate': []}
 
     def get_model(self, num_classes: int) -> Module:
