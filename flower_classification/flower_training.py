@@ -18,8 +18,8 @@ class FlowerTrainer(FlowerClassifier):
     Wrapper for the training routine
     """
 
-    def __init__(self, num_classes: int = 100):
-        super().__init__(num_classes=num_classes)
+    def __init__(self, model_type: str, num_classes: int):
+        super().__init__(model_type=model_type, num_classes=num_classes)
 
     def evaluate(self, data_loader: DataLoader):
         """

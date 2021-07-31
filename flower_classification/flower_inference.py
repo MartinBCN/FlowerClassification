@@ -23,8 +23,8 @@ class FlowerInference(FlowerClassifier):
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
 
-    def __init__(self, num_classes: int = 102):
-        super(FlowerInference, self).__init__(num_classes=num_classes)
+    def __init__(self, model_type: str, num_classes: int):
+        super(FlowerInference, self).__init__(model_type=model_type, num_classes=num_classes)
         self.label_dictionary = None
 
     def set_label_dictionary(self, label_dictionary: Dict[int, str]) -> None:

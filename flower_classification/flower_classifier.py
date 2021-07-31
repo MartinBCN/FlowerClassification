@@ -18,9 +18,10 @@ class FlowerClassifier:
                   'cross_entropy': CrossEntropyLoss, 'neg_log_likelihood': NLLLoss}
     scheduler_choices = {'steplr': StepLR}
 
-    def __init__(self, model_type: str = 'resnet50', num_classes: int = 102) -> None:
+    def __init__(self, model_type: str, num_classes: int) -> None:
 
         self.model_type = model_type
+        self.num_classes = num_classes
         self.model = self.get_model(model_type, num_classes)
         self.criterion = None
         self.optimizer = None
@@ -98,7 +99,10 @@ class FlowerClassifier:
         """
         state = torch.load(filepath)
 
-        new = cls()
+        num_classes = state['num_classes']
+        model_type = 'model_type'
+
+        new = cls(model_type=model_type, num_classes=num_classes)
 
         new.set_optimizer(state['optimizer'], state['hyper_parameter'])
 
@@ -126,13 +130,16 @@ class FlowerClassifier:
         None
         """
 
-        state = {'model_state_dict': self.model.state_dict(),
-                 'optimizer_state_dict': self.optimizer.state_dict(),
-                 'training_log': self.training_log,
-                 'optimizer': self.__optimizer_choice,
-                 'hyper_parameter': self.hyper_parameter,
-                 'scheduler': self.__scheduler_choice,
-                 'scheduler_parameter': self.scheduler_parameter
+        state = {
+            'num_classes': self.num_classes,
+            'model_type': self.model_type,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'training_log': self.training_log,
+            'optimizer': self.__optimizer_choice,
+            'hyper_parameter': self.hyper_parameter,
+            'scheduler': self.__scheduler_choice,
+            'scheduler_parameter': self.scheduler_parameter
                  }
 
         torch.save(state, filepath)
