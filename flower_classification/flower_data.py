@@ -10,6 +10,7 @@ from torchvision import transforms
 
 DATA_TRANSFORMS = {
     'train': transforms.Compose([
+        # transforms.RandomRotation(30),
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),

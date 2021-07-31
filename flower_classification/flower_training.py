@@ -119,7 +119,7 @@ class FlowerTrainer(FlowerClassifier):
                 # Log Epoch (accuracy and loss)
                 accuracy = accuracy_score(np.concatenate(epoch_ground_truth), np.concatenate(epoch_predicted_labels))
                 self.training_log[phase]['epoch_accuracy'].append(accuracy)
-                self.training_log[phase]['epoch_loss'].append(epoch_loss)
+                self.training_log[phase]['epoch_loss'].append(epoch_loss / len(data_loader[phase]))
 
                 execution_time[phase] = (datetime.now() - start).seconds
 

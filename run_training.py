@@ -16,7 +16,7 @@ def main():
     model.set_optimizer('adam', dict(lr=0.001))
 
     batch_size = 8
-    use_fraction = None
+    use_fraction = 0.0125
     train_loader = get_loader('data/flowers', 'train', batch_size=batch_size, use_fraction=use_fraction)
     valid_loader = get_loader('data/flowers', 'valid', batch_size=batch_size, use_fraction=use_fraction)
 

@@ -18,9 +18,10 @@ class FlowerClassifier:
                   'cross_entropy': CrossEntropyLoss, 'neg_log_likelihood': NLLLoss}
     scheduler_choices = {'steplr': StepLR}
 
-    def __init__(self, num_classes: int = 102):
+    def __init__(self, model_type: str = 'resnet50', num_classes: int = 102) -> None:
 
-        self.model = self.get_model(num_classes)
+        self.model_type = model_type
+        self.model = self.get_model(model_type, num_classes)
         self.criterion = None
         self.optimizer = None
         self.__optimizer_choice = None
@@ -35,13 +36,15 @@ class FlowerClassifier:
 
         self.label_dictionary = None
 
-    def get_model(self, num_classes: int) -> nn.Module:
+    def get_model(self, model_type: str, num_classes: int) -> nn.Module:
         """
         Get the model. For now this is fixed to the pre-trained ResNet18 with only the number of classes customizable.
         This should, however, be extended to allow several models
 
         Parameters
         ----------
+        model_type: str
+            Which pre-trained model to use as a base
         num_classes: int
             Number of classes
 
@@ -49,9 +52,15 @@ class FlowerClassifier:
         -------
         nn.Module
         """
-        model_ft = models.resnet18(pretrained=True)
-        num_ftrs = model_ft.fc.in_features
-        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+        available_models = {'resnet50': self._get_resnet50}
+        return available_models[model_type](num_classes)
+
+    def _get_resnet50(self, num_classes: int):
+        model_ft = models.resnet50(pretrained=True)
+        for param in model_ft.parameters():
+            param.requires_grad = False
+        num_features = model_ft.fc.in_features
+        model_ft.fc = nn.Linear(num_features, num_classes)
 
         return model_ft.to(self.device)
 
