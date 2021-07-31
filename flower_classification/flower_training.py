@@ -1,11 +1,9 @@
 import copy
-from pathlib import Path
-from typing import Union
-
 import numpy as np
 import torch
 from matplotlib.figure import Figure
 from sklearn.metrics import accuracy_score
+from torch import Tensor
 from torch.utils.data import DataLoader
 from datetime import datetime
 import logging
@@ -16,21 +14,40 @@ logger = logging.getLogger(__name__)
 
 
 class FlowerTrainer(FlowerClassifier):
+    """
+    Wrapper for the training routine
+    """
 
     def __init__(self, num_classes: int = 100):
         super().__init__(num_classes=num_classes)
 
     def evaluate(self, data_loader: DataLoader):
+        """
+        Evaluate a data set
+        Parameters
+        ----------
+        data_loader
+
+        Returns
+        -------
+        accuracy: float
+            Mean accuracy for the full data set
+        predicted_labels: np.array
+            Numpy array of the predicted labels
+        ground_truth: np.array
+            Numpy array of the ground truth from the data set
+        """
+        self.model.eval()
 
         predicted_labels = []
         ground_truth = []
 
-        for i, (image, label) in enumerate(data_loader):
+        with torch.no_grad():
 
-            image = image.to(self.device)
-            label = label.to(self.device)
+            for i, (image, label) in enumerate(data_loader):
 
-            with torch.no_grad():
+                image = image.to(self.device)
+                label = label.to(self.device)
 
                 predicted_labels.append(self.model.predict(image).detach().cpu().numpy())
                 ground_truth.append(label.detach().cpu().numpy())
@@ -41,11 +58,33 @@ class FlowerTrainer(FlowerClassifier):
         accuracy = (ground_truth == predicted_labels).mean()
         return accuracy, predicted_labels, ground_truth
 
-    def train(self, data_loader: dict, epochs: int, early_stop_epochs: int = 5):
+    def train(self, train_loader: DataLoader, validation_loader: DataLoader,
+              epochs: int, early_stop_epochs: int = 5) -> None:
+        """
+        Main training loop:
+        * iterates training data and calculates loss/backpropagation
+        * iterates validation set to calculate losses and accuracy
 
+        Parameters
+        ----------
+        train_loader: DataLoader
+            Torch DataLoader with the training set
+        validation_loader: DataLoader
+            Torch DataLoader with the validation set
+        epochs: int
+            Number of epochs
+        early_stop_epochs: int, default = 5
+            If the validation accuracy does not improve over this many consecutive epochs training is aborted and
+            the model with the best validation score is stored
+        Returns
+        -------
+        None
+        """
+
+        data_loader = {'train': train_loader, 'valid': validation_loader}
         logger.info(f'Start training. '
-                    f'images in training set: {len(data_loader["train"])}, '
-                    f'images in validation set: {len(data_loader["valid"])}')
+                    f'images in training set: {len(train_loader.dataset)}, '
+                    f'images in validation set: {len(validation_loader.dataset)}')
 
         best_score = 0.0
         no_improvement = 0
@@ -69,36 +108,13 @@ class FlowerTrainer(FlowerClassifier):
                 epoch_ground_truth = []
                 epoch_predicted_labels = []
 
-                for i, (image, label) in enumerate(data_loader[phase]):
-                    start_batch = datetime.now()
-                    image = image.to(self.device)
-                    label = label.to(self.device)
+                for (image, label) in data_loader[phase]:
+                    batch_loss, batch_predicted_labels, batch_true_labels = self.calculate_batch(phase, image, label)
 
-                    if phase == 'train':
-                        # zero the parameter gradients
-                        self.optimizer.zero_grad()
-
-                    # forward + backward + optimize
-                    outputs = self.model(image)
-                    loss = self.criterion(outputs, label)
-                    epoch_loss += loss.detach().cpu().numpy()
-
-                    # --- Batch Accuracy ---
-                    batch_predicted_labels = outputs.detach().cpu().numpy()
-                    batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
-                    batch_true_labels = label.detach().cpu().numpy().reshape(-1)
                     epoch_predicted_labels.append(batch_predicted_labels)
                     epoch_ground_truth.append(batch_true_labels)
 
-                    if phase == 'train':
-                        loss.backward()
-                        self.optimizer.step()
-
-                    # Permanent Value Tracking
-                    batch_loss = loss.detach().cpu().numpy()
-                    self.training_log[phase]['batch_loss'].append(batch_loss)
-                    accuracy = accuracy_score(batch_true_labels, batch_predicted_labels)
-                    self.training_log[phase]['batch_accuracy'].append(accuracy)
+                    epoch_loss += batch_loss
 
                 # Log Epoch (accuracy and loss)
                 accuracy = accuracy_score(np.concatenate(epoch_ground_truth), np.concatenate(epoch_predicted_labels))
@@ -129,12 +145,59 @@ class FlowerTrainer(FlowerClassifier):
             else:
                 no_improvement += 1
 
+            if self.scheduler is not None:
+                self.scheduler.step()
+
             if no_improvement == early_stop_epochs:
                 self.model = best_model
                 logger.info(f'Training aborted after {early_stop_epochs} without improvement')
+                break
 
-            if self.scheduler is not None:
-                self.scheduler.step()
+    def calculate_batch(self, phase: str, image: Tensor, label: Tensor):
+        """
+        Calculate a single batch:
+        * backpropagation in training
+        * loss
+        * accuracy score
+
+        Parameters
+        ----------
+        phase: str
+        image: Tensor
+        label: Tensor
+
+        Returns
+        -------
+        batch_loss: float
+        batch_predicted_labels: np.array
+        batch_true_labels: np.array
+        """
+        image = image.to(self.device)
+        label = label.to(self.device)
+
+        if phase == 'train':
+            # zero the parameter gradients
+            self.optimizer.zero_grad()
+
+        # forward + backward + optimize
+        outputs = self.model(image)
+        loss = self.criterion(outputs, label)
+
+        # --- Batch Accuracy ---
+        batch_predicted_labels = outputs.detach().cpu().numpy()
+        batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
+        batch_true_labels = label.detach().cpu().numpy().reshape(-1)
+
+        if phase == 'train':
+            loss.backward()
+            self.optimizer.step()
+
+        # Permanent Value Tracking
+        batch_loss = loss.detach().cpu().numpy()
+        self.training_log[phase]['batch_loss'].append(batch_loss)
+        accuracy = accuracy_score(batch_true_labels, batch_predicted_labels)
+        self.training_log[phase]['batch_accuracy'].append(accuracy)
+        return batch_loss, batch_predicted_labels, batch_true_labels
 
     def plot(self) -> Figure:
         """
@@ -155,9 +218,9 @@ class FlowerTrainer(FlowerClassifier):
         train_batch_accuracy = self.training_log['train']['batch_accuracy']
         lns2 = ax00.plot(np.convolve(train_batch_accuracy, np.ones(10)/10, mode='same'), label='Accuracy', color='blue')
         ax00.plot(train_batch_accuracy, label='Accuracy', color='blue', alpha=0.2)
-        lns = lns1 + lns2
-        labs = [l.get_label() for l in lns]
-        axes[0, 0].legend(lns, labs, title='Training Batches')
+        lines = lns1 + lns2
+        labels = [line.get_label() for line in lines]
+        axes[0, 0].legend(lines, labels, title='Training Batches')
 
         # --- [0, 1] Epoch Loss ---
         axes[0, 1].plot(self.training_log['train']['epoch_loss'], label='Train')
@@ -172,10 +235,11 @@ class FlowerTrainer(FlowerClassifier):
         valid_batch_accuracy = self.training_log['valid']['batch_accuracy']
         lns2 = ax10.plot(np.convolve(valid_batch_accuracy, np.ones(10)/10, mode='same'), label='Accuracy', color='blue')
         ax10.plot(valid_batch_accuracy, label='Accuracy', color='blue', alpha=0.2)
-        lns = lns1 + lns2
-        labs = [l.get_label() for l in lns]
-        axes[1, 0].legend(lns, labs, title='Validation Batches')
+        lines = lns1 + lns2
+        labels = [line.get_label() for line in lines]
+        axes[1, 0].legend(lines, labels, title='Validation Batches')
 
+        # --- [1, 1] Epoch Accuracy ---
         axes[1, 1].plot(self.training_log['train']['epoch_accuracy'], label='Train')
         axes[1, 1].plot(self.training_log['valid']['epoch_accuracy'], label='Validation')
         axes[1, 1].legend(title='Epoch accuracy')

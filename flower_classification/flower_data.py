@@ -86,6 +86,7 @@ def get_loader(base_dir: Union[str, Path], phase: str, batch_size: int = 1, num_
     phase: str
     batch_size: int, default = 1
     num_workers: int, default = 0
+    use_fraction: float, default = None
 
     Returns
     -------

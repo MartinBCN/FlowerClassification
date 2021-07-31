@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Union
 import torch
-from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss, NLLLoss
+from torch.nn import L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss, NLLLoss
 from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import StepLR
 import torchvision.models as models
@@ -9,13 +9,16 @@ import torch.nn as nn
 
 
 class FlowerClassifier:
+    """
+    Wrapper for the classification model, optimiser and criterion
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     optimizers = {'adam': Adam, 'sgd': SGD}
     criterions = {'l1': L1Loss, 'smooth_l1': SmoothL1Loss, 'mse': MSELoss,
                   'cross_entropy': CrossEntropyLoss, 'neg_log_likelihood': NLLLoss}
     scheduler_choices = {'steplr': StepLR}
 
-    def __init__(self, num_classes: int = 100):
+    def __init__(self, num_classes: int = 102):
 
         self.model = self.get_model(num_classes)
         self.criterion = None
@@ -30,11 +33,24 @@ class FlowerClassifier:
                              'valid': {'batch_loss': [], 'epoch_loss': [], 'batch_accuracy': [], 'epoch_accuracy': []},
                              'learning_rate': []}
 
-    def get_model(self, num_classes: int) -> Module:
+        self.label_dictionary = None
+
+    def get_model(self, num_classes: int) -> nn.Module:
+        """
+        Get the model. For now this is fixed to the pre-trained ResNet18 with only the number of classes customizable.
+        This should, however, be extended to allow several models
+
+        Parameters
+        ----------
+        num_classes: int
+            Number of classes
+
+        Returns
+        -------
+        nn.Module
+        """
         model_ft = models.resnet18(pretrained=True)
         num_ftrs = model_ft.fc.in_features
-        # Here the size of each output sample is set to 2.
-        # Alternatively, it can be generalized to nn.Linear(num_ftrs, len(class_names)).
         model_ft.fc = nn.Linear(num_ftrs, num_classes)
 
         return model_ft.to(self.device)
@@ -60,6 +76,17 @@ class FlowerClassifier:
 
     @classmethod
     def load(cls, filepath: Union[str, Path]):
+        """
+        Load a model from a given file path
+
+        Parameters
+        ----------
+        filepath: Union[str, Path]
+
+        Returns
+        -------
+        FlowerClassifier
+        """
         state = torch.load(filepath)
 
         new = cls()
@@ -69,11 +96,26 @@ class FlowerClassifier:
         new.model.load_state_dict(state['model_state_dict'])
         new.optimizer.load_state_dict(state['optimizer_state_dict'])
         new.training_log = state['training_log']
-        new.set_scheduler(state['scheduler'], state['scheduler_parameter'])
+
+        scheduler = state['scheduler']
+        if scheduler is not None:
+            new.set_scheduler(scheduler, state['scheduler_parameter'])
 
         return new
 
-    def save(self, filepath: Union[str, Path]):
+    def save(self, filepath: Union[str, Path]) -> None:
+        """
+        Serialize and save a model. To allow resuming training also optimizer, hyper-parameter or lr scheduler are
+        included
+
+        Parameters
+        ----------
+        filepath: Union[str, Path]
+
+        Returns
+        -------
+        None
+        """
 
         state = {'model_state_dict': self.model.state_dict(),
                  'optimizer_state_dict': self.optimizer.state_dict(),
@@ -85,6 +127,3 @@ class FlowerClassifier:
                  }
 
         torch.save(state, filepath)
-
-    def get_inference_model(self):
-        return self.model
