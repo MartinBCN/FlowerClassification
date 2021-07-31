@@ -4,7 +4,7 @@ from typing import Union, Optional, Callable, Tuple
 import torch
 from PIL import Image
 from torch import Tensor
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 
 
@@ -75,7 +75,8 @@ class FlowerDataSet(Dataset):
         return len(self.files)
 
 
-def get_loader(base_dir: Union[str, Path], phase: str, batch_size: int = 1, num_workers: int = 0) -> DataLoader:
+def get_loader(base_dir: Union[str, Path], phase: str, batch_size: int = 1, num_workers: int = 0,
+               use_fraction: float = None) -> DataLoader:
     """
     Get the data loader for the chosen phase (train/test/valid)
 
@@ -97,6 +98,10 @@ def get_loader(base_dir: Union[str, Path], phase: str, batch_size: int = 1, num_
         base_dir = Path(base_dir)
 
     dataset = FlowerDataSet(base_dir / phase, transformation=DATA_TRANSFORMS[phase])
+    if use_fraction is not None:
+        used_part = int(len(dataset) * use_fraction)
+        lengths = [used_part, len(dataset) - used_part]
+        dataset = random_split(dataset, lengths, generator=torch.Generator().manual_seed(42))[0]
     loader = DataLoader(dataset,
                         batch_size=batch_size,
                         shuffle=True,

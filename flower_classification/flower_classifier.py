@@ -3,13 +3,9 @@ from typing import Union
 import torch
 from torch.nn import Module, L1Loss, MSELoss, SmoothL1Loss, CrossEntropyLoss, NLLLoss
 from torch.optim import Adam, SGD
-import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
-import numpy as np
 import torchvision.models as models
 import torch.nn as nn
-
-plt.style.use('ggplot')
 
 
 class FlowerClassifier:
@@ -92,38 +88,3 @@ class FlowerClassifier:
 
     def get_inference_model(self):
         return self.model
-
-    def plot(self, filepath: Union[str, Path] = None):
-
-        fig, axes = plt.subplots(2, 2, figsize=(20, 10))
-
-        train_batch_loss = self.training_log['train']['batch_loss']
-        axes[0, 0].plot(np.convolve(train_batch_loss, np.ones(10)/10, mode='same'), label='Train', color='red')
-        axes[0, 0].plot(train_batch_loss, label='Train', color='red', alpha=0.2)
-        val_batch_loss = self.training_log['validation']['batch_loss']
-        axes[0, 0].plot(np.convolve(val_batch_loss, np.ones(10)/10, mode='same'), label='Train', color='blue')
-        axes[0, 0].plot(val_batch_loss, label='Validation', color='blue', alpha=0.2)
-        axes[0, 0].legend(title='Batch Loss')
-
-        axes[0, 1].plot(self.training_log['train']['epoch_loss'], label='Train')
-        axes[0, 1].plot(self.training_log['validation']['epoch_loss'], label='Validation')
-        axes[0, 1].legend(title='Epoch Loss')
-
-        train_batch_accuracy = self.training_log['train']['batch_accuracy']
-        axes[1, 0].plot(np.convolve(train_batch_accuracy, np.ones(10)/10, mode='same'), label='Train', color='red')
-        axes[1, 0].plot(train_batch_accuracy, label='Train', color='red', alpha=0.2)
-        val_batch_accuracy = self.training_log['validation']['batch_accuracy']
-        axes[1, 0].plot(np.convolve(val_batch_accuracy, np.ones(10)/10, mode='same'), label='Train', color='blue')
-        axes[1, 0].plot(val_batch_accuracy, label='Validation', color='blue', alpha=0.2)
-        axes[1, 0].legend(title='Batch accuracy')
-        axes[1, 0].set_ylim(-0.2, 1.0)
-
-        axes[1, 1].plot(self.training_log['train']['epoch_accuracy'], label='Train')
-        axes[1, 1].plot(self.training_log['validation']['epoch_accuracy'], label='Validation')
-        axes[1, 1].legend(title='Epoch accuracy')
-        axes[1, 1].set_ylim(-0.2, 1.0)
-
-        if filepath is None:
-            plt.show()
-        else:
-            plt.savefig(filepath)
