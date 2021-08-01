@@ -5,14 +5,14 @@ from matplotlib.figure import Figure
 from torch import Tensor
 import torch.nn as nn
 from torchvision.transforms import transforms
-
-from flower_classification.flower_classifier import FlowerClassifier
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
+from flower_classification.flower_training import FlowerTrainer
 
-class FlowerInference(FlowerClassifier):
+
+class FlowerInference(FlowerTrainer):
     """
     Inference for Flower Classification Model
     """
@@ -69,8 +69,11 @@ class FlowerInference(FlowerClassifier):
         str
             Name of the classified flower
         """
-        prediction = self.tensor_to_probability(image, 3)
-        return list(prediction.values())[0]
+        image = image.unsqueeze(0)
+        outputs = self.model(image)
+        batch_predicted_labels = outputs.detach().cpu().numpy()
+        batch_predicted_labels = np.argmax(batch_predicted_labels, axis=1)
+        return batch_predicted_labels[0]
 
     def image_to_probability(self, image: Image, num_results: int = 5) -> Dict[str, float]:
         """
@@ -106,20 +109,21 @@ class FlowerInference(FlowerClassifier):
         image = image.to(self.device)
         image = image.unsqueeze(0)
         prediction = self.model(image)
+
         softmax = nn.Softmax(dim=1)
         prediction = softmax(prediction)
 
         top_predictions = torch.topk(prediction, num_results)
-        top_indices = top_predictions.indices.detach().cpu().numpy()
-        top_values = top_predictions.values.detach().cpu().numpy()
+        top_indices = top_predictions.indices.detach().cpu().numpy()[0]
+        top_values = top_predictions.values.detach().cpu().numpy()[0]
 
         if self.label_dictionary is None:
-            prediction = {value: idx for idx, value in zip(top_indices[0], top_values[0])}
+            prediction = {value: idx + 1 for idx, value in zip(top_indices, top_values)}
         else:
-            prediction = {value: self.label_dictionary[f'{idx + 1}'] for idx, value in zip(top_indices[0], top_values[0])}
+            prediction = {value: self.label_dictionary[f'{idx + 1}'] for idx, value in zip(top_indices, top_values)}
         return prediction
 
-    def plot(self, image: Image, true_label: int = None) -> Figure:
+    def plot_topk(self, image: Image, true_label: int = None) -> Figure:
         """
         Create a Figure of the image together with a visualisation of the most likely predictions
 
@@ -149,7 +153,7 @@ class FlowerInference(FlowerClassifier):
         axes[1].invert_yaxis()  # labels read top-to-bottom
         axes[1].set_xlabel('Probability')
 
-        if true_label is not None:
+        if (true_label is not None) and (self.label_dictionary is not None):
             axes[0].set_title(f'True class: {self.label_dictionary[str(true_label)]}')
 
         return fig

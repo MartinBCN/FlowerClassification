@@ -24,6 +24,7 @@ class FlowerClassifier:
         self.num_classes = num_classes
         self.model = self.get_model(model_type, num_classes)
         self.criterion = None
+        self.__criterion_choice = None
         self.optimizer = None
         self.__optimizer_choice = None
         self.scheduler = None
@@ -66,7 +67,7 @@ class FlowerClassifier:
 
         return model_ft.to(self.device)
 
-    def set_criterion(self, criterion: str) -> None:
+    def set_criterion(self, criterion: str = 'cross_entropy') -> None:
         self.criterion = self.criterions[criterion]()
 
     def set_optimizer(self, optimizer: str, hyper_parameter: dict = None) -> None:
@@ -98,7 +99,10 @@ class FlowerClassifier:
         -------
         FlowerClassifier
         """
-        state = torch.load(filepath)
+        if torch.cuda.is_available():
+            state = torch.load(filepath)
+        else:
+            state = torch.load(filepath, map_location=torch.device('cpu'))
 
         num_classes = state['num_classes']
         model_type = state['model_type']
@@ -106,6 +110,7 @@ class FlowerClassifier:
         new = cls(model_type=model_type, num_classes=num_classes)
 
         new.set_optimizer(state['optimizer'], state['hyper_parameter'])
+        new.set_criterion(state['criterion'])
 
         new.model.load_state_dict(state['model_state_dict'])
         new.optimizer.load_state_dict(state['optimizer_state_dict'])
@@ -140,7 +145,8 @@ class FlowerClassifier:
             'optimizer': self.__optimizer_choice,
             'hyper_parameter': self.hyper_parameter,
             'scheduler': self.__scheduler_choice,
-            'scheduler_parameter': self.scheduler_parameter
+            'scheduler_parameter': self.scheduler_parameter,
+            'criterion': self.__criterion_choice
                  }
 
         torch.save(state, filepath)
