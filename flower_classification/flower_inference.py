@@ -103,6 +103,7 @@ class FlowerInference(FlowerClassifier):
         Dict[str, float]
             Dictionary of the form {name: probability}
         """
+        image = image.to(self.device)
         image = image.unsqueeze(0)
         prediction = self.model(image)
         softmax = nn.Softmax(dim=1)
