@@ -45,12 +45,10 @@ class FlowerTrainer(FlowerClassifier):
         with torch.no_grad():
 
             for i, (image, label) in enumerate(data_loader):
+                batch_loss, batch_predicted_labels, batch_true_labels = self.calculate_batch('test', image, label)
 
-                image = image.to(self.device)
-                label = label.to(self.device)
-
-                predicted_labels.append(self.model.predict(image).detach().cpu().numpy())
-                ground_truth.append(label.detach().cpu().numpy())
+                predicted_labels.append(batch_predicted_labels)
+                ground_truth.append(batch_true_labels)
 
         # Log accuracy
         predicted_labels = np.concatenate(predicted_labels)
