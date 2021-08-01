@@ -11,7 +11,7 @@ logger.addHandler(ch)
 
 
 def main():
-    model = FlowerTrainer(model_type='restnet50', num_classes=102)
+    model = FlowerTrainer(model_type='resnet50', num_classes=102)
     model.set_criterion('cross_entropy')
     model.set_optimizer('adam', dict(lr=0.001))
 

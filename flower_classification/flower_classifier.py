@@ -100,7 +100,7 @@ class FlowerClassifier:
         state = torch.load(filepath)
 
         num_classes = state['num_classes']
-        model_type = 'model_type'
+        model_type = state['model_type']
 
         new = cls(model_type=model_type, num_classes=num_classes)
 
