@@ -69,6 +69,7 @@ class FlowerClassifier:
 
     def set_criterion(self, criterion: str = 'cross_entropy') -> None:
         self.criterion = self.criterions[criterion]()
+        self.__criterion_choice = criterion
 
     def set_optimizer(self, optimizer: str, hyper_parameter: dict = None) -> None:
         if hyper_parameter is None:
