@@ -106,6 +106,7 @@ class FlowerInference(FlowerTrainer):
         Dict[str, float]
             Dictionary of the form {name: probability}
         """
+        self.model.eval()
         image = image.to(self.device)
         image = image.unsqueeze(0)
         prediction = self.model(image)

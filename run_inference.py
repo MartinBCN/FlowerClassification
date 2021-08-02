@@ -34,7 +34,7 @@ def get_argparser() -> ArgumentParser:
 
 def main(model_name: str, model_dir: str, cat_to_name_file: str, test_image_path: str) -> None:
     model = FlowerInference.load(f'{model_dir}/{model_name}.ckpt')
-    model.model.eval()
+
     with open(cat_to_name_file) as file:
         cat_to_name = json.load(file)
 
@@ -58,7 +58,6 @@ def main(model_name: str, model_dir: str, cat_to_name_file: str, test_image_path
 
     fn = 'data/flowers/test/10/image_07090.jpg'
     image = Image.open(fn).convert("RGB")
-    print(image)
     prediction = model.image_to_probability(image)
     print(prediction)
 
