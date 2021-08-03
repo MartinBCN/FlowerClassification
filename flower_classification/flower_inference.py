@@ -69,6 +69,8 @@ class FlowerInference(FlowerTrainer):
         str
             Name of the classified flower
         """
+        self.model.eval()
+        image = image.to(self.device)
         image = image.unsqueeze(0)
         outputs = self.model(image)
         batch_predicted_labels = outputs.detach().cpu().numpy()

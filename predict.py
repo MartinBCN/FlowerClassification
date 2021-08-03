@@ -32,7 +32,8 @@ def get_argparser() -> ArgumentParser:
     return parser
 
 
-def main(model_name: str, model_dir: str, cat_to_name_file: str, test_image_path: str) -> None:
+def main(model_name: str, model_dir: str, cat_to_name_file: str, test_image_path: str,
+         figure_dir: str, data_dir: str) -> None:
     model = FlowerInference.load(f'{model_dir}/{model_name}.ckpt')
 
     with open(cat_to_name_file) as file:
@@ -40,35 +41,33 @@ def main(model_name: str, model_dir: str, cat_to_name_file: str, test_image_path
 
     # model.set_label_dictionary(cat_to_name)
 
-    batch_size = 1
+    batch_size = 2
     use_fraction = None
-    test_loader = get_loader('data/flowers', 'test', batch_size=batch_size, use_fraction=use_fraction)
+    test_loader = get_loader(data_dir, 'test', batch_size=batch_size, use_fraction=use_fraction)
 
     # Get a single image tensor and the label as integer
     image, label = next(iter(test_loader))
     image = image[0]
-    label = int(label[0])
-    print(label)
-
+    label = int(label[0]) + 1
     prediction = model.tensor_to_probability(image)
-    print(prediction)
+    print(f'Random image, true label: {label}, prediction probabilities: {prediction}')
 
     prediction = model.tensor_to_label(image)
-    print(prediction)
+    print(f'Random image, true label: {label}, prediction: {prediction}')
 
-    fn = 'data/flowers/test/10/image_07090.jpg'
-    image = Image.open(fn).convert("RGB")
+    image = Image.open(test_image_path).convert("RGB")
     prediction = model.image_to_probability(image)
-    print(prediction)
+    true_label = test_image_path.split('/')[-2]
+    print(f'Test image: {test_image_path}, true label: {true_label}, prediction: {prediction}')
 
     model.set_label_dictionary(cat_to_name)
     fig = model.plot_topk(image, 10)
-    fig.savefig('figures/probability.png')
+    fig.savefig(f'{figure_dir}/probability.png')
 
 
 if __name__ == '__main__':
     p = get_argparser()
     arguments = p.parse_args()
     main(model_name=arguments.model_name, model_dir=arguments.model_dir, cat_to_name_file=arguments.cat_to_name_file,
-         test_image_path=arguments.test_image_path)
+         test_image_path=arguments.test_image_path, figure_dir=arguments.figure_dir, data_dir=arguments.data_dir)
 
